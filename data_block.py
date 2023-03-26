@@ -1,6 +1,7 @@
 from fastai.vision.all import *
+from config import PATH
 
-path = Path('/home/weckerleben/PycharmProjects/Deep Learning-based Pneumonia Diagnosis from Chest X-rays/chest_xray/chest_xray')
+path = Path(PATH)
 train_path = path/'train'
 valid_path = path/'val'
 
