@@ -1,5 +1,5 @@
 from fastai.vision.all import *
-import matplotlib.pyplot as plt
+import sys
 
 from config import PATH
 
@@ -15,16 +15,11 @@ def train_model(path):
     # Load pre-trained ResNet50 model
     learn = cnn_learner(data, resnet50, metrics=error_rate)
 
-    # Add ShowGraphCallback
-    learn.add_cb(ShowGraphCallback())
-    learn.recorder.live = True
-
-    # Train the model
-    learn.fine_tune(4)
+    # Save training output to a file
+    with open('train_output.txt', 'w') as f:
+        sys.stdout = f
+        learn.fine_tune(4) # Train the model
+        sys.stdout = sys.__stdout__  # Restore standard output
 
     # Save the model
     learn.export('model.pkl')
-
-
-if __name__ == '__main__':
-    train_model(PATH)
