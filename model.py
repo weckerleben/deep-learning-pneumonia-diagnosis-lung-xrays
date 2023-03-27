@@ -13,7 +13,7 @@ def train_model(path):
     print(len(data.train_ds), len(data.valid_ds))
 
     # Load pre-trained ResNet50 model
-    learn = cnn_learner(data, resnet50, metrics=error_rate)
+    learn = cnn_learner(data, resnet50, metrics=[accuracy, error_rate, Precision(), Recall(), F1Score()])
 
     # Save training output to a file
     with open('train_output.txt', 'w') as f:
