@@ -25,4 +25,4 @@ Our model achieved an accuracy of 95% on the test set, demonstrating its effecti
 
 [1] FastAI: https://www.fast.ai/
 [2] ResNet50: https://arxiv.org/abs/1512.03385
-[3] Dataset: [link to dataset]
+[3] Dataset: https://www.kaggle.com/datasets/paultimothymooney/chest-xray-pneumonia
