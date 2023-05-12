@@ -1,7 +1,7 @@
-from fastai.vision.all import *
 import sys
-
+from fastai.vision.all import *
 from config import PATH
+from sendMessage import send_sms
 
 
 def train_model(path):
@@ -18,7 +18,7 @@ def train_model(path):
     # Save training output to a file
     with open('train_output.txt', 'w') as f:
         sys.stdout = f
-        learn.fine_tune(4) # Train the model
+        learn.fine_tune(10) # Train the model
         sys.stdout = sys.__stdout__  # Restore standard output
 
     # Save the model

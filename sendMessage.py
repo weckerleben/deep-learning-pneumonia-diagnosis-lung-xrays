@@ -1,17 +1,16 @@
+from email.mime.multipart import MIMEMultipart
+from twilio.rest import Client
 import smtplib
 from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from email.mime.image import MIMEImage
-from email.mime.base import MIMEBase
-from email import encoders
+from config import TWILIO_SID, TWILIO_AUTH_TOKEN, TWILIO_NUMBER
 
-def send_email():
+
+def send_email(body):
     to = "wgre2000@gmail.com"
     subject = "AI Training"
-    body = "Training has ended"
 
-    from_email = "ai@linux.my" # Reemplaza con tu dirección de correo electrónico
-    password = "stihqedirmfdhvju" # Reemplaza con tu contraseña de Gmail
+    from_email = "ai@linux.my"
+    password = "stihqedirmfdhvju"
 
     msg = MIMEMultipart()
     msg['From'] = from_email
@@ -24,5 +23,17 @@ def send_email():
     server.login("wgre2000@gmail.com", password)
     text = msg.as_string()
     server.sendmail(from_email, to, text)
-    print('SENT')
+    # print('SENT')
     server.quit()
+
+
+def send_sms(body):
+    # Create Twilio client
+    client = Client(TWILIO_SID, TWILIO_AUTH_TOKEN)
+
+    # Send SMS
+    message = client.messages.create(body=body, from_=TWILIO_NUMBER, to='+595993381844')
+
+    # Print sent message SID
+    # print(message.sid)
+
