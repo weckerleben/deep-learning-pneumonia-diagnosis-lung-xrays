@@ -2,7 +2,7 @@ from email.mime.multipart import MIMEMultipart
 from twilio.rest import Client
 import smtplib
 from email.mime.text import MIMEText
-from src.config.config import TWILIO_SID, TWILIO_AUTH_TOKEN, TWILIO_NUMBER
+from model.src.config.config import TWILIO_SID, TWILIO_AUTH_TOKEN, TWILIO_NUMBER
 
 
 def send_email(body):
