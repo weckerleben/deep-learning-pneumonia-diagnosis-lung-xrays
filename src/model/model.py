@@ -1,6 +1,5 @@
 import sys
 from fastai.vision.all import *
-from sendMessage import send_sms
 
 
 def train_model(path):

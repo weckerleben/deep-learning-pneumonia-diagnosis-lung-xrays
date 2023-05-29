@@ -1,7 +1,6 @@
-from config import PATH
-from model import train_model
-import subprocess
-from sendMessage import send_email, send_sms
+from src.config.config import PATH
+from src.model.model import train_model
+from src.utils.sendMessage import *
 
 if __name__ == '__main__':
     # subprocess.run(['tail', '-f', 'train_output.txt'])

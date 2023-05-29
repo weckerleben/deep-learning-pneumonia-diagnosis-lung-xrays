@@ -1,6 +1,6 @@
 import torch
 from fastai.vision.all import load_learner
-from config import TRAINED_MODEL_PATH
+from src.config.config import TRAINED_MODEL_PATH
 
 # Load the trained model
 model_path = TRAINED_MODEL_PATH + "/model.pkl"
