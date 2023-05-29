@@ -1,4 +1,4 @@
-PATH = '/home/weckerleben/PycharmProjects/Deep Learning-based Pneumonia Diagnosis from Chest X-rays/chest_xray'
+PATH = '/home/weckerleben/Documents/deep-learning-pneumonia-diagnosis-lung-xrays/chest_xray'
 PATH_CHROME= '/usr/bin/google-chrome'
 
 TWILIO_SID = 'AC1e97b7a0c7c568891f41d88b6ac998c5'
