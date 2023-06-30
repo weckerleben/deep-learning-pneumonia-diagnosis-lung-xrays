@@ -1,0 +1,54 @@
+{
+  "health-check": {
+    "tags": [
+      "Health Check"
+    ],
+    "description": "Endpoint to check service status",
+    "responses": {
+      "200": {
+        "description": "OK"
+      },
+      "401": {
+        "description": "Unauthorized"
+      },
+      "403": {
+        "description": "Forbidden"
+      },
+      "404": {
+        "description": "Not Found"
+      }
+    }
+  },
+  "neumoscan": {
+    "parameters": [
+      {
+        "name": "imagen",
+        "in": "formData",
+        "type": "file",
+        "required": true,
+        "description": "Imagen a subir"
+      }
+    ],
+    "tags": [
+      "NeumoScan"
+    ],
+    "description": "Endpoint to check lungs xray to find or not pneumonia",
+    "responses": {
+      "200": {
+        "description": "OK"
+      },
+      "401": {
+        "description": "Unauthorized"
+      },
+      "403": {
+        "description": "Forbidden"
+      },
+      "404": {
+        "description": "Not Found"
+      }
+    }
+  },
+  "swagger": "2.0",
+  "info": {},
+  "paths": {}
+}

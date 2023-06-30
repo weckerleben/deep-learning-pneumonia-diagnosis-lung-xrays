@@ -1,0 +1,6 @@
+fastai==2.7.11
+flasgger==0.9.7.1
+Flask==1.1.4
+numpy==1.24.2
+opencv_python==4.7.0.72
+markupsafe==2.0.1

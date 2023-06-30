@@ -6,10 +6,13 @@ import logging
 from logging.handlers import RotatingFileHandler
 
 import numpy as np
+from flasgger import Swagger, swag_from
 from flask import Flask, request, jsonify
 from fastai.vision.all import *
+import json
 
 app = Flask(__name__)
+swagger = Swagger(app)
 
 # Configurar el registro
 log_file = 'app.log'
@@ -24,8 +27,18 @@ app.logger.setLevel(logging.INFO)
 # Carga del modelo
 model = load_learner("./model.pkl")
 
+with open('swagger.json', 'r') as file:
+    swagger_json = json.load(file)
+
+
+@app.route('/health-check', methods=['GET'])
+@swag_from(swagger_json['health-check'])
+def health_check():
+    return jsonify({'status': 'ok'})
+
 
 @app.route('/neumoscan', methods=['POST'])
+@swag_from(swagger_json['neumoscan'])
 def analizar_imagen():
     # image_path=""
 
@@ -53,9 +66,9 @@ def analizar_imagen():
     ruta_archivo = os.path.join(directorio, file_name)
     archivo.save(ruta_archivo)
 
-    #     app.logger.info('Imagen recibida y guardada con éxito en:' + str(ruta_archivo))
+    #     api.logger.info('Imagen recibida y guardada con éxito en:' + str(ruta_archivo))
     # except:
-    #     app.logger.error('Imagen no ha podido ser guardada')
+    #     api.logger.error('Imagen no ha podido ser guardada')
 
     # Cargar la imagen con OpenCV y convertirla a un formato válido
     image = cv2.imread(ruta_archivo)
@@ -67,10 +80,6 @@ def analizar_imagen():
 
         image_array = np.array(image)
 
-        # Normalizar y ajustar la forma del array según las necesidades del modelo
-        image_array = image_array.astype(np.float32) / 255.0  # Normalizar los valores de píxeles entre 0 y 1
-        # image_array = np.expand_dims(image_array, axis=0)  # Agregar una dimensión adicional para representar el batch
-
         # Convertir el array numpy a un tensor de PyTorch
         image_tensor = torch.from_numpy(image_array)
 
@@ -78,11 +87,11 @@ def analizar_imagen():
         pred = model.predict(image_tensor)
     else:
         app.logger.error('No se pudo leer la imagen correctamente')
-        return jsonify({'ERROR':'No se pudo leer la imagen correctamente'})
+        return jsonify({'ERROR': 'No se pudo leer la imagen correctamente'})
 
     # Retorna la respuesta al cliente en formato JSON
-    return jsonify({'file':archivo.filename, 'prediccion': str(pred[0]), 'probabilidad': float(max(pred[2]))})
+    return jsonify({'file': archivo.filename, 'prediction': str(pred[0]), 'probability': float(max(pred[2]))})
 
 
 if __name__ == '__main__':
-    app.run()
+    app.run(host='192.168.100.216', port='1796')
