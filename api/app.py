@@ -94,4 +94,4 @@ def analizar_imagen():
 
 
 if __name__ == '__main__':
-    app.run(host='192.168.100.216', port='1796')
+    app.run(host='192.168.100.7', port='1796')

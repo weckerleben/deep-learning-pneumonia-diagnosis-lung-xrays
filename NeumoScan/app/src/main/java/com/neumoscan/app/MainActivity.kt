@@ -36,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -46,6 +47,21 @@ import java.io.FileOutputStream
 import java.io.IOException
 import java.util.Date
 import java.util.Locale
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.asRequestBody
+import okhttp3.Response
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import org.json.JSONObject
+import android.app.AlertDialog
+import android.content.Context
+import android.os.Handler
 
 
 class MainActivity : ComponentActivity() {
@@ -57,6 +73,7 @@ class MainActivity : ComponentActivity() {
     private var currentPhotoPath: String? = null
     private lateinit var imageView: ImageView
 
+    private val apiDiagnosis: MutableState<String> = mutableStateOf("Waiting results...")
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -74,7 +91,8 @@ class MainActivity : ComponentActivity() {
                             verticalArrangement = Arrangement.Center,
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Greeting("Android")
+                            Greeting("William")
+                            InfoMain()
                             Spacer(modifier = Modifier.height(16.dp))
                             TakePhotoButton(this@MainActivity)
                         }
@@ -105,7 +123,8 @@ class MainActivity : ComponentActivity() {
 
         // Solicita los permisos necesarios
         if (permissionsToRequest.isNotEmpty()) {
-            requestPermissions(permissionsToRequest.toTypedArray(),
+            requestPermissions(
+                permissionsToRequest.toTypedArray(),
                 PERMISSION_REQUEST_CODE
             )
         } else {
@@ -177,8 +196,11 @@ class MainActivity : ComponentActivity() {
         if (requestCode == REQUEST_IMAGE_CAPTURE && resultCode == Activity.RESULT_OK) {
             val photoFile = File(currentPhotoPath)
             if (photoFile.exists()) {
+                apiDiagnosis.value = "Waiting results...";
+                sendImageToWebService(photoFile)
                 setContent {
-                    ShowPhoto(photoFile.absolutePath)
+                    showPopup(this);
+                    DefaultPreview(photoFile.absolutePath);
                 }
             }
         }
@@ -214,6 +236,16 @@ class MainActivity : ComponentActivity() {
         )
     }
 
+    @Composable
+    fun InfoMain() {
+        Text(
+            text = "Take a picture of a chest x-ray to analyze whether or not you have pneumonia.",
+            modifier = Modifier.padding(16.dp),
+            color = Color.White,
+            textAlign = TextAlign.Center
+        )
+    }
+
     @Throws(IOException::class)
     private fun createImageFile(): File {
         // Crea un nombre único para el archivo de imagen
@@ -234,6 +266,46 @@ class MainActivity : ComponentActivity() {
         captureImage()
     }
 
+    private fun sendImageToWebService(photoFile: File) {
+        val client = OkHttpClient()
+
+        // Construye el cuerpo de la solicitud multipart/form-data
+        val requestBody = MultipartBody.Builder().setType(MultipartBody.FORM)
+            .addFormDataPart(
+                "imagen",
+                photoFile.name,
+                photoFile.asRequestBody("image/jpeg".toMediaType())
+            )
+            .build()
+
+        // Construye la solicitud POST con el cuerpo y la URL del servicio web
+        val request = Request.Builder()
+            .url("http://192.168.100.7:1796/neumoscan")
+            .post(requestBody)
+            .build()
+
+        // Ejecuta la operación de red en un hilo separado
+        val thread = Thread {
+            try {
+                val response: Response = client.newCall(request).execute()
+                // Procesa la respuesta del servicio web aquí
+                if (response.isSuccessful) {
+                    // La solicitud fue exitosa
+                    val responseBody = response.body?.string()
+                    showImageResponse(responseBody.toString())
+                } else {
+                    // La solicitud no fue exitosa
+                    // Maneja el error de la solicitud
+                }
+            } catch (e: IOException) {
+                e.printStackTrace()
+                // Maneja la excepción de la solicitud
+            }
+        }
+        thread.start()
+    }
+
+
     @Composable
     fun TakePhotoButton(activity: ComponentActivity) {
         Button(
@@ -246,19 +318,92 @@ class MainActivity : ComponentActivity() {
 
     @Preview(showBackground = true)
     @Composable
-    fun DefaultPreview() {
+    fun DefaultPreview(path: String) {
         NeumoScanTheme {
-            Column(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Greeting("Android")
-                Spacer(modifier = Modifier.height(16.dp))
-                TakePhotoButton(activity = ComponentActivity())
+            if (path != null) {
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.Top,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    if ("NORMAL".equals(apiDiagnosis.value)) {
+                        Text(
+                            text = apiDiagnosis.value,
+                            modifier = Modifier.padding(16.dp),
+                            color = Color.Green,
+                            textAlign = TextAlign.Center,
+                            fontSize = 40.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    } else if ("PNEUMONIA".equals(apiDiagnosis.value)) {
+                        Text(
+                            text = apiDiagnosis.value,
+                            modifier = Modifier.padding(16.dp),
+                            color = Color.Red,
+                            textAlign = TextAlign.Center,
+                            fontSize = 40.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    } else {
+                        Text(
+                            text = apiDiagnosis.value,
+                            modifier = Modifier.padding(16.dp),
+                            color = Color.Black,
+                            textAlign = TextAlign.Center,
+                            fontSize = 40.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
+                    ShowPhoto(path!!)
+                    TakePhotoButton(activity = ComponentActivity())
+                }
             }
         }
     }
+
+    private fun updateDiagnosis(diagnosis: String) {
+        // Actualiza el valor del MutableState con la respuesta del web service
+        apiDiagnosis.value = diagnosis
+    }
+
+    private fun showImageResponse(response: String) {
+        runOnUiThread {
+            try {
+                val jsonResponse = JSONObject(response)
+                val prediction = jsonResponse.getString("prediction")
+                updateDiagnosis(prediction)
+            } catch (e: Exception) {
+                e.printStackTrace()
+                // Manejar cualquier error al analizar el JSON o al obtener el campo "prediction"
+            }
+        }
+    }
+
+    fun showPopup(context: Context) {
+        val waiting =
+            !("NORMAL".equals(apiDiagnosis.value) || "PNEUMONIA".equals(apiDiagnosis.value))
+        val builder = AlertDialog.Builder(context)
+        builder.setTitle("Neumoscan Prediction")
+        builder.setMessage(apiDiagnosis.value)
+
+        if (!waiting) {
+            builder.setPositiveButton("Thanks") { dialog, which ->
+                // Acciones a realizar al hacer clic en el botón "Aceptar"
+                dialog.dismiss()
+            }
+        }
+
+        if (waiting) {
+            val dialog = builder.create()
+            dialog.show()
+
+            val handler = Handler()
+            handler.postDelayed({
+                dialog.dismiss()
+            }, 3000) // 3000 milisegundos = 3 segundos
+        }
+    }
+
 
     @Composable
     fun ShowPhoto(photoPath: String) {
@@ -281,3 +426,4 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
+
