@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">NeumoScan</string>
+    <!-- Cambiar esta URL según el entorno de despliegue -->
+    <string name="api_base_url">http://192.168.100.7:1796</string>
 </resources>

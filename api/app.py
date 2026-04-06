@@ -1,15 +1,17 @@
-from datetime import date
-from email.mime import image
+import os
+from datetime import date, datetime
 
-import cv2
 import logging
 from logging.handlers import RotatingFileHandler
 
-import numpy as np
 from flasgger import Swagger, swag_from
 from flask import Flask, request, jsonify
-from fastai.vision.all import *
+from fastai.vision.all import load_learner, PILImage
 import json
+
+ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.bmp', '.tiff'}
+MAX_FILE_SIZE_MB = 15
+CONFIDENCE_THRESHOLD = float(os.environ.get('CONFIDENCE_THRESHOLD', '0.70'))
 
 app = Flask(__name__)
 swagger = Swagger(app)
@@ -40,58 +42,63 @@ def health_check():
 @app.route('/neumoscan', methods=['POST'])
 @swag_from(swagger_json['neumoscan'])
 def analizar_imagen():
-    # image_path=""
+    if 'imagen' not in request.files:
+        return jsonify({'ERROR': 'No se envió ningún archivo'}), 400
 
-    # # Get image
-    # try:
-    # Obtener la fecha actual
-    fecha_actual = date.today()
-    fecha_formateada = fecha_actual.strftime("%Y/%m/%d")
-
-    # Directorio donde se guardará el archivo
-    directorio = f"tmp/{fecha_formateada}"
-
-    # Verificar si el directorio existe, si no, crearlo
-    if not os.path.exists(directorio):
-        os.makedirs(directorio)
-
-    # Obtener el archivo enviado
     archivo = request.files['imagen']
 
-    extension = os.path.splitext(archivo.filename)[1]
+    if archivo.filename == '':
+        return jsonify({'ERROR': 'Nombre de archivo vacío'}), 400
+
+    extension = os.path.splitext(archivo.filename)[1].lower()
+    if extension not in ALLOWED_EXTENSIONS:
+        return jsonify({'ERROR': f'Formato no soportado. Usar: {", ".join(ALLOWED_EXTENSIONS)}'}), 415
+
+    # Verificar tamaño (leer en memoria temporalmente)
+    archivo.seek(0, 2)
+    file_size_mb = archivo.tell() / (1024 * 1024)
+    archivo.seek(0)
+    if file_size_mb > MAX_FILE_SIZE_MB:
+        return jsonify({'ERROR': f'Archivo demasiado grande. Máximo: {MAX_FILE_SIZE_MB}MB'}), 413
+
+    # Construir ruta con jerarquía de fecha
+    fecha_formateada = date.today().strftime("%Y/%m/%d")
+    directorio = f"tmp/{fecha_formateada}"
+    os.makedirs(directorio, exist_ok=True)
+
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S%f")[:-3]
     file_name = f"RX_{timestamp}{extension}"
-
-    # Guardar el archivo en el directorio
     ruta_archivo = os.path.join(directorio, file_name)
     archivo.save(ruta_archivo)
+    app.logger.info(f'Imagen guardada en: {ruta_archivo}')
 
-    #     api.logger.info('Imagen recibida y guardada con éxito en:' + str(ruta_archivo))
-    # except:
-    #     api.logger.error('Imagen no ha podido ser guardada')
+    try:
+        # FastAI maneja el preprocessing completo (resize, normalización, RGB)
+        # de la misma forma que en el entrenamiento
+        img = PILImage.create(ruta_archivo)
+        pred_class, pred_idx, probs = model.predict(img)
+    except Exception as e:
+        app.logger.error(f'Error al procesar imagen: {e}')
+        return jsonify({'ERROR': 'No se pudo procesar la imagen'}), 500
 
-    # Cargar la imagen con OpenCV y convertirla a un formato válido
-    image = cv2.imread(ruta_archivo)
+    max_prob = float(probs.max())
 
-    if image is not None:
-        # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        image = cv2.resize(image, (224, 224))
+    if max_prob < CONFIDENCE_THRESHOLD:
+        return jsonify({
+            'file': archivo.filename,
+            'prediction': 'INCONCLUSIVE',
+            'probability': round(max_prob, 4),
+            'message': f'Confianza insuficiente ({max_prob:.1%}). Se requiere radiografía de mayor calidad.'
+        })
 
-        image_array = np.array(image)
-
-        # Convertir el array numpy a un tensor de PyTorch
-        image_tensor = torch.from_numpy(image_array)
-
-        # Ahora puedes enviar el tensor al modelo para realizar la predicción
-        pred = model.predict(image_tensor)
-    else:
-        app.logger.error('No se pudo leer la imagen correctamente')
-        return jsonify({'ERROR': 'No se pudo leer la imagen correctamente'})
-
-    # Retorna la respuesta al cliente en formato JSON
-    return jsonify({'file': archivo.filename, 'prediction': str(pred[0]), 'probability': float(max(pred[2]))})
+    return jsonify({
+        'file': archivo.filename,
+        'prediction': str(pred_class),
+        'probability': round(max_prob, 4)
+    })
 
 
 if __name__ == '__main__':
-    app.run(host='192.168.100.7', port='1796')
+    host = os.environ.get('API_HOST', '0.0.0.0')
+    port = int(os.environ.get('API_PORT', '1796'))
+    app.run(host=host, port=port)

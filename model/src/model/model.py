@@ -1,23 +1,66 @@
-import sys
-from fastai.vision.all import *
+import contextlib
+import torch
+from fastai.vision.all import (
+    ImageDataLoaders, Resize, aug_transforms,
+    cnn_learner, resnet50, accuracy, error_rate,
+    Precision, Recall, F1Score, CrossEntropyLossFlat
+)
+
+
+def get_class_weights(dls):
+    """Calcula pesos inversamente proporcionales a la frecuencia de cada clase."""
+    from collections import Counter
+    import torch
+
+    labels = [dls.vocab[label] for label in dls.train_ds.items]
+    counts = Counter(labels)
+    total = sum(counts.values())
+    weights = [total / counts[cls] for cls in dls.vocab]
+    return torch.tensor(weights, dtype=torch.float)
 
 
 def train_model(path):
-    # Load data
-    data = ImageDataLoaders.from_folder(path, train='train', valid='val', item_tfms=Resize(460),
-                                        batch_tfms=aug_transforms(size=224, min_scale=0.75), batch_size=16)
+    # Cargar datos
+    data = ImageDataLoaders.from_folder(
+        path,
+        train='train',
+        valid='val',
+        item_tfms=Resize(460),
+        batch_tfms=aug_transforms(size=224, min_scale=0.75),
+        batch_size=16
+    )
 
-    # Print dataset sizes
-    print(len(data.train_ds), len(data.valid_ds))
+    print(f'Train: {len(data.train_ds)} imágenes | Valid: {len(data.valid_ds)} imágenes')
+    print(f'Clases: {data.vocab}')
 
-    # Load pre-trained ResNet50 model
-    learn = cnn_learner(data, resnet50, metrics=[accuracy, error_rate, Precision(), Recall(), F1Score()])
+    # Calcular class weights para manejar desbalance
+    class_weights = get_class_weights(data)
+    loss_func = CrossEntropyLossFlat(weight=class_weights)
 
-    # Save training output to a file
+    # Cargar ResNet50 preentrenado con class weights en la loss
+    learn = cnn_learner(
+        data,
+        resnet50,
+        metrics=[accuracy, error_rate, Precision(), Recall(), F1Score()],
+        loss_func=loss_func
+    )
+
+    # Learning Rate Finder — descomentar para buscar el LR óptimo manualmente
+    # learn.lr_find()
+
+    # Fase 1: entrenar solo las capas nuevas (head) con el backbone congelado
+    learn.freeze()
+    learn.fit_one_cycle(3, lr_max=1e-3)
+
+    # Fase 2: descongelar todo y fine-tune con LR diferenciado
+    learn.unfreeze()
+    learn.fit_one_cycle(7, lr_max=slice(1e-5, 1e-4))
+
+    # Guardar output de entrenamiento de forma segura
     with open('train_output.txt', 'w') as f:
-        sys.stdout = f
-        learn.fine_tune(10) # Train the model
-        sys.stdout = sys.__stdout__  # Restore standard output
+        with contextlib.redirect_stdout(f):
+            learn.show_results()
 
-    # Save the model
+    # Exportar el modelo
     learn.export('model.pkl')
+    print('Modelo exportado correctamente.')

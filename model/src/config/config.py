@@ -1,7 +1,13 @@
+import os
+
 PATH = './chest_xray'
-PATH_CHROME= '/usr/bin/google-chrome'
 TRAINED_MODEL_PATH = './trained_model'
 
-TWILIO_SID = 'AC1e97b7a0c7c568891f41d88b6ac998c5'
-TWILIO_AUTH_TOKEN = '251f4e4eb4a9ec37cbbe32cbfdcb7ce3'
-TWILIO_NUMBER = '+13203026795'
+TWILIO_SID = os.environ.get('TWILIO_SID', '')
+TWILIO_AUTH_TOKEN = os.environ.get('TWILIO_AUTH_TOKEN', '')
+TWILIO_NUMBER = os.environ.get('TWILIO_NUMBER', '')
+TWILIO_RECIPIENT = os.environ.get('TWILIO_RECIPIENT', '')
+
+GMAIL_USER = os.environ.get('GMAIL_USER', '')
+GMAIL_APP_PASSWORD = os.environ.get('GMAIL_APP_PASSWORD', '')
+EMAIL_RECIPIENT = os.environ.get('EMAIL_RECIPIENT', '')

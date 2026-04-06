@@ -279,8 +279,9 @@ class MainActivity : ComponentActivity() {
             .build()
 
         // Construye la solicitud POST con el cuerpo y la URL del servicio web
+        val apiUrl = getString(R.string.api_base_url) + "/neumoscan"
         val request = Request.Builder()
-            .url("http://192.168.100.7:1796/neumoscan")
+            .url(apiUrl)
             .post(requestBody)
             .build()
 
@@ -326,39 +327,36 @@ class MainActivity : ComponentActivity() {
                     verticalArrangement = Arrangement.Top,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    if ("NORMAL".equals(apiDiagnosis.value)) {
-                        Text(
-                            text = apiDiagnosis.value,
-                            modifier = Modifier.padding(16.dp),
-                            color = Color.Green,
-                            textAlign = TextAlign.Center,
-                            fontSize = 40.sp,
-                            fontWeight = FontWeight.ExtraBold
-                        )
-                    } else if ("PNEUMONIA".equals(apiDiagnosis.value)) {
-                        Text(
-                            text = apiDiagnosis.value,
-                            modifier = Modifier.padding(16.dp),
-                            color = Color.Red,
-                            textAlign = TextAlign.Center,
-                            fontSize = 40.sp,
-                            fontWeight = FontWeight.ExtraBold
-                        )
-                    } else {
-                        Text(
-                            text = apiDiagnosis.value,
-                            modifier = Modifier.padding(16.dp),
-                            color = Color.Black,
-                            textAlign = TextAlign.Center,
-                            fontSize = 40.sp,
-                            fontWeight = FontWeight.ExtraBold
-                        )
-                    }
+                    DiagnosisText(apiDiagnosis.value)
                     ShowPhoto(path!!)
                     TakePhotoButton(activity = ComponentActivity())
                 }
             }
         }
+    }
+
+    @Composable
+    fun DiagnosisText(diagnosis: String) {
+        val (displayText, color) = when {
+            diagnosis.contains("NORMAL", ignoreCase = true) ->
+                Pair("NORMAL", Color(0xFF2E7D32))       // verde oscuro
+            diagnosis.contains("BACTERIAL", ignoreCase = true) ->
+                Pair("BACTERIAL\nPNEUMONIA", Color(0xFFB71C1C))  // rojo oscuro
+            diagnosis.contains("VIRAL", ignoreCase = true) ->
+                Pair("VIRAL\nPNEUMONIA", Color(0xFFE65100))      // naranja oscuro
+            diagnosis.contains("INCONCLUSIVE", ignoreCase = true) ->
+                Pair("INCONCLUSIVE\nLow confidence", Color(0xFF37474F)) // gris azulado
+            else ->
+                Pair(diagnosis, Color.DarkGray)
+        }
+        Text(
+            text = displayText,
+            modifier = Modifier.padding(16.dp),
+            color = color,
+            textAlign = TextAlign.Center,
+            fontSize = 36.sp,
+            fontWeight = FontWeight.ExtraBold
+        )
     }
 
     private fun updateDiagnosis(diagnosis: String) {
@@ -380,27 +378,24 @@ class MainActivity : ComponentActivity() {
     }
 
     fun showPopup(context: Context) {
-        val waiting =
-            !("NORMAL".equals(apiDiagnosis.value) || "PNEUMONIA".equals(apiDiagnosis.value))
+        val diagnosis = apiDiagnosis.value
+        val isResolved = diagnosis.contains("NORMAL", ignoreCase = true)
+                || diagnosis.contains("BACTERIAL", ignoreCase = true)
+                || diagnosis.contains("VIRAL", ignoreCase = true)
+                || diagnosis.contains("INCONCLUSIVE", ignoreCase = true)
+
         val builder = AlertDialog.Builder(context)
-        builder.setTitle("Neumoscan Prediction")
-        builder.setMessage(apiDiagnosis.value)
+        builder.setTitle("NeumoScan Diagnosis")
+        builder.setMessage(diagnosis)
 
-        if (!waiting) {
-            builder.setPositiveButton("Thanks") { dialog, which ->
-                // Acciones a realizar al hacer clic en el botón "Aceptar"
-                dialog.dismiss()
-            }
-        }
-
-        if (waiting) {
+        if (isResolved) {
+            builder.setPositiveButton("OK") { dialog, _ -> dialog.dismiss() }
+            builder.create().show()
+        } else {
+            // Aún esperando respuesta — auto-dismiss a los 3 segundos
             val dialog = builder.create()
             dialog.show()
-
-            val handler = Handler()
-            handler.postDelayed({
-                dialog.dismiss()
-            }, 3000) // 3000 milisegundos = 3 segundos
+            Handler().postDelayed({ dialog.dismiss() }, 3000)
         }
     }
 
